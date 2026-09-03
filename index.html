@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>兒童成長百分位與BMI計算機</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5a623;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;案
+            --text-color: #333333;
+            --border-color: #cccccc;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, "PingFang TC", "Heiti TC", "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h3 { 
+            margin-top: 20px;
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .form-group label {
+            width: 150px;
+            font-weight: bold;
+        }
+
+        .input-wrapper {
+            width: 160px;
+            /* 您指定的短欄位設定 */
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="date"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+        }
+
+        .radio-group label {
+            width: auto;
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        /* 全域結果紅框基礎設計 */
+        .result-addon {
+            width: 200px;
+            margin-left: 20px;
+            padding: 10px;
+            background-color: #fff1f0;
+            border: 2px solid #ff4d4f;
+            /* 您要求的顯眼紅框 */
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 15px;
+            
+            min-height: 20px;
+            align-items: center;
+            /* 【核心修正】初始狀態與重新計算時強制 100% 隱藏 */
+            display: none ;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            font-size: 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: bold;
+        }
+
+        button.btn-calc {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        button.btn-calc:hover {
+            background-color: #357abd;
+        }
+
+        button.btn-reset {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        button.btn-reset:hover {
+            background-color: #5a6268;
+        }
+
+        .required::after {
+            content: " *";
+            color: red;
+        }
+
+        /* 針對小螢幕與手機版的最佳化排版 */
+        @media (max-width: 768px) {
+            .form-group {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+                margin-bottom: 15px;
+            }
+
+            /* 1. 強制性別這一列絕對不准換行 */
+            .form-group:first-of-type {
+                flex-wrap: nowrap ;
+            }
+
+            .form-group label {
+                width: 100px; /* 原來 90px */
+                margin-bottom: 0;
+                flex-shrink: 0;
+                /* 文字標籤絕對不允許被壓縮 */
+            }
+
+            /* 2. 【核心修正】確保性別的選項範圍在手機上不會被壓扁，且選項本身也不准斷行 */
+            .form-group:first-of-type .input-wrapper {
+                flex: none;
+                /* 取消自動拉伸，改用固定寬度 */
+                width: 150px;
+                /* 給男孩女孩足夠的橫向寬度(原160px） */
+            }
+
+            .form-group:first-of-type .radio-group {
+                white-space: nowrap;
+                /* 【關鍵】強制單選鈕文字（男孩、女孩）絕對不准斷行 */
+                display: flex;
+                gap: 15px;
+            }
+
+            /* 3. 其他一般輸入框（身高、體重、頭圍）維持原本的填滿排版 */
+            .form-group:not(:first-of-type) .input-wrapper {
+                flex: 1;
+                width: auto;
+            }
+
+            .result-addon {
+                width: 100%;
+                /* 強制結果紅框滿版斷行，移至下一行 */
+                margin-left: 0;
+                margin-top: 8px;
+                box-sizing: border-box;
+                display: none ;
+                /* 初始與重置時手機版同樣強制隱藏紅線 */
+            }
+
+            /* 讓百分位文字折行後，精準對齊上方的輸入框開頭，視覺最整齊 */
+            #ageResult,
+            #heightResult,
+            #weightResult,
+            #headCircumResult,
+            #bmiResult {
+                padding-left: 50px;
+                /* 原102px */
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h3>兒童成長百分位與BMI計算機</h3>
+
+        <form id="growthForm" onsubmit="event.preventDefault(); calculateGrowth();">
+            <!-- 性別 -->
+            <div class="form-group">
+                <label class="required">兒童性別</label>
+                <div class="input-wrapper">
+                    <div class="radio-group">
+                        <label><input type="radio" name="gender" value="male" required> 男孩</label>
+                        <label><input type="radio" name="gender" value="female"> 女孩</label>
+                    </div>
+                </div>
+                <!-- 空白防排版錯位隱藏區塊 -->
+                <div class="result-addon" style="visibility: hidden; display: none ;"></div>
+            </div>
+
+            <!-- 生日 -->
+            <div class="form-group">
+                <label class="required">出生日期</label>
+                <div class="input-wrapper">
+                    <input type="date" id="birthday" required onchange="updateAgeDisplay()">
+                </div>
+                <div class="result-addon" id="ageResult"></div>
+            </div>
+
+            <!-- 身高 -->
+            <div class="form-group">
+                <label class="required">身高 (cm)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="height" step="0.1" min="30" max="150" required>
+                </div>
+                <div class="result-addon" id="heightResult"></div>
+            </div>
+
+            <!-- 體重 -->
+            <div class="form-group">
+                <label class="required">體重 (kg)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="weight" step="0.1" min="1" max="100" required>
+                </div>
+                <div class="result-addon" id="weightResult"></div>
+            </div>
+
+            <!-- 頭圍（加上專屬外框 ID，以利 3 歲以上完美執行完全隱藏與重新計算後自動出現） -->
+            <div class="form-group" id="headCircumGroup">
+                <label id="headCircumLabel" class="required">頭圍 (cm)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="headCircum" step="0.1" min="30" max="60">
+                </div>
+                <div class="result-addon" id="headCircumResult"></div>
+            </div>
+
+            <!-- BMI 顯示與體位（預設隱藏） -->
+            <div class="form-group" id="bmiFormGroup" style="display: none;">
+                <label>BMI</label>
+                <div class="input-wrapper">
+                    <input type="number" id="bmiValue" readonly style="background-color: #fff1f0;
+                     border: 2px solid #e74c3c; border-radius: 4px;font-weight: bold;"
+                    >
+                </div>
+                <div class="result-addon" id="bmiResult"></div>
+            </div>
+
+            <!-- 按鈕組 -->
+            <div class="btn-group">
+                <button type="button" class="btn-calc" onclick="calculateGrowth()" ontouchstart"">開始計算</button>
+                <button type="button" class="btn-reset" onclick="resetForm()" ontouchstart"">重新計算</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+// 全域資料庫宣告
+const growthData = {
+// ==========================================
+// 男孩 (Male) 0 ~ 7 歲官方原始數據
+// ==========================================
+male : {
+    "0":  { height: [46.1, 48.0, 49.9, 51.8, 53.7], weight: [2.5, 2.9, 3.3, 3.9, 4.4], head: [32.1, 33.3, 34.5, 35.8, 36.9] },
+    "1":  { height: [50.8, 52.8, 54.7, 56.7, 58.6], weight: [3.4, 4.0, 4.5, 5.1, 5.8], head: [34.9, 36.1, 37.3, 38.6, 39.7] },
+    "2":  { height: [54.4, 56.4, 58.4, 60.4, 62.4], weight: [4.3, 4.9, 5.6, 6.3, 7.1], head: [36.9, 38.1, 39.3, 40.5, 41.6] },
+    "3":  { height: [57.3, 59.4, 61.4, 63.5, 65.5], weight: [5.0, 5.7, 6.4, 7.2, 8.0], head: [38.3, 39.5, 40.8, 42.0, 43.2] },
+    "4":  { height: [59.7, 61.8, 63.9, 66.0, 68.0], weight: [5.6, 6.3, 7.0, 7.9, 8.7], head: [39.5, 40.7, 42.0, 43.2, 44.4] },
+    "5":  { height: [61.7, 63.8, 65.9, 68.0, 70.1], weight: [6.1, 6.8, 7.5, 8.4, 9.3], head: [40.4, 41.6, 42.9, 44.2, 45.3] },
+    "6":  { height: [63.3, 65.5, 67.6, 69.8, 71.9], weight: [6.4, 7.1, 7.9, 8.9, 9.8], head: [41.2, 42.4, 43.7, 45.0, 46.1] },
+    "7":  { height: [64.8, 67.0, 69.2, 71.3, 73.5], weight: [6.7, 7.4, 8.3, 9.3, 10.3], head: [41.8, 43.0, 44.4, 45.6, 46.8] },
+    "8":  { height: [66.2, 68.4, 70.6, 72.8, 75.0], weight: [7.0, 7.7, 8.6, 9.6, 10.7], head: [42.4, 43.6, 45.0, 46.2, 47.4] },
+    "9":  { height: [67.5, 69.7, 72.0, 74.2, 76.5], weight: [7.2, 8.0, 8.9, 10.0, 11.0], head: [42.9, 44.1, 45.5, 46.7, 47.9] },
+    "10": { height: [68.7, 71.0, 73.3, 75.6, 77.9], weight: [7.4, 8.2, 9.2, 10.3, 11.4], head: [43.3, 44.5, 45.9, 47.1, 48.3] },
+    "11": { height: [69.9, 72.2, 74.5, 76.9, 79.2], weight: [7.6, 8.4, 9.4, 10.5, 11.7], head: [43.7, 44.9, 46.3, 47.5, 48.7] },
+    "12": { height: [71.0, 73.4, 75.7, 78.1, 80.5], weight: [7.7, 8.6, 9.6, 10.8, 12.0], head: [44.0, 45.2, 46.6, 47.9, 49.1] },
+    "13": { height: [71.9, 74.4, 76.9, 79.3, 81.8], weight: [7.9, 8.8, 9.9, 11.0, 12.2], head: [44.2, 45.4, 46.8, 48.1, 49.3] },
+    "14": { height: [72.8, 75.3, 78.0, 80.5, 83.0], weight: [8.1, 9.0, 10.1, 11.3, 12.5], head: [44.4, 45.6, 47.0, 48.3, 49.5] },
+    "15": { height: [73.7, 76.3, 79.1, 81.7, 84.2], weight: [8.3, 9.2, 10.3, 11.5, 12.8], head: [44.6, 45.8, 47.2, 48.5, 49.7] },
+    "16": { height: [74.6, 77.3, 80.2, 82.8, 85.4], weight: [8.5, 9.4, 10.5, 11.8, 13.1], head: [44.8, 46.0, 47.4, 48.7, 49.9] },
+    "17": { height: [75.4, 78.2, 81.2, 84.0, 86.6], weight: [8.6, 9.6, 10.7, 12.0, 13.4], head: [45.0, 46.2, 47.5, 48.8, 50.0] },
+    "18": { height: [76.3, 79.2, 82.3, 85.1, 87.7], weight: [8.8, 9.8, 10.9, 12.2, 13.7], head: [45.1, 46.3, 47.7, 49.0, 50.2] },
+    "19": { height: [77.2, 80.2, 83.2, 86.1, 88.8], weight: [9.0, 10.0, 11.1, 12.5, 13.9], head: [45.3, 46.5, 47.8, 49.2, 50.3] },
+    "20": { height: [78.1, 81.1, 84.2, 87.2, 89.8], weight: [9.2, 10.2, 11.3, 12.7, 14.2], head: [45.4, 46.6, 48.0, 49.3, 50.5] },
+    "21": { height: [78.9, 82.0, 85.1, 88.2, 90.9], weight: [9.4, 10.4, 11.5, 12.9, 14.5], head: [45.5, 46.7, 48.1, 49.4, 50.6] },
+    "22": { height: [79.7, 82.9, 86.0, 89.1, 91.9], weight: [9.5, 10.6, 11.8, 13.2, 14.7], head: [45.6, 46.8, 48.2, 49.5, 50.7] },
+    "23": { height: [80.5, 83.8, 86.9, 90.0, 92.9], weight: [9.7, 10.8, 12.0, 13.4, 15.0], head: [45.7, 46.9, 48.3, 49.6, 50.8] },
+    "24": { height: [81.7, 84.6, 87.8, 90.9, 93.9], weight: [10.1, 11.2, 12.2, 13.6, 15.3], head: [45.7, 46.9, 48.3, 49.7, 50.9] },
+    "25": { height: [82.5, 85.5, 88.8, 91.8, 94.9], weight: [10.2, 11.3, 12.4, 13.8, 15.5], head: [45.8, 47.0, 48.4, 49.8, 51.0] },
+    "26": { height: [83.3, 86.3, 89.6, 92.7, 95.8], weight: [10.4, 11.5, 12.6, 14.1, 15.8], head: [45.9, 47.1, 48.5, 49.9, 51.1] },
+    "27": { height: [84.1, 87.1, 90.5, 93.6, 96.8], weight: [10.5, 11.6, 12.8, 14.3, 16.0], head: [46.0, 47.2, 48.6, 50.0, 51.2] },
+    "28": { height: [84.8, 87.9, 91.3, 94.5, 97.7], weight: [10.7, 11.8, 13.0, 14.5, 16.3], head: [46.1, 47.3, 48.7, 50.1, 51.3] },
+    "29": { height: [85.5, 88.7, 92.1, 95.3, 98.6], weight: [10.8, 12.0, 13.1, 14.7, 16.5], head: [46.2, 47.4, 48.8, 50.2, 51.4] },
+    "30": { height: [86.2, 89.4, 93.0, 96.2, 99.5], weight: [11.0, 12.1, 13.3, 14.9, 16.8], head: [46.3, 47.5, 48.9, 50.3, 51.5] },
+    "31": { height: [86.9, 90.1, 93.8, 97.1, 100.4], weight: [11.1, 12.3, 13.5, 15.1, 17.0], head: [46.4, 47.6, 49.0, 50.4, 51.6] },
+    "32": { height: [87.5, 90.8, 94.5, 97.9, 101.2], weight: [11.3, 12.4, 13.7, 15.3, 17.2], head: [46.5, 47.7, 49.1, 50.5, 51.7] },
+    "33": { height: [88.1, 91.5, 95.2, 98.6, 102.0], weight: [11.4, 12.6, 13.9, 15.5, 17.4], head: [46.6, 47.8, 49.2, 50.6, 51.8] },
+    "34": { height: [88.7, 92.1, 95.9, 99.4, 102.7], weight: [11.6, 12.7, 14.1, 15.7, 17.6], head: [46.7, 47.9, 49.3, 50.7, 51.9] },
+    "35": { height: [89.3, 92.7, 96.6, 100.1, 103.5], weight: [11.7, 12.9, 14.2, 15.9, 17.8], head: [46.7, 48.0, 49.4, 50.8, 52.0] },
+    "36": { height: [88.7, 92.4, 96.1, 99.8, 103.5], weight: [11.8, 13.0, 14.3, 16.2, 18.0], head: [46.8, 48.1, 49.5, 50.9, 52.1], bmi: [13.5, 14.1, 15.3, 17.2, 18.4] },
+    "37": { height: [89.2, 93.0, 96.7, 100.4, 104.2], weight: [12.0, 13.1, 14.5, 16.4, 18.3], head: [46.9, 48.2, 49.6, 51.0, 52.2], bmi: [13.4, 14.0, 15.2, 17.1, 18.3] },
+    "38": { height: [89.8, 93.5, 97.3, 101.1, 104.9], weight: [12.1, 13.3, 14.7, 16.6, 18.5], head: [46.9, 48.2, 49.6, 51.0, 52.2], bmi: [13.4, 14.0, 15.2, 17.1, 18.3] },
+    "39": { height: [90.3, 94.1, 98.0, 101.7, 105.6], weight: [12.2, 13.4, 14.8, 16.8, 18.8], head: [47.0, 48.3, 49.7, 51.1, 52.3], bmi: [13.3, 13.9, 15.1, 17.0, 18.3] },
+    "40": { height: [90.9, 94.7, 98.6, 102.4, 106.3], weight: [12.3, 13.6, 15.0, 17.0, 19.0], head: [47.1, 48.4, 49.8, 51.2, 52.4], bmi: [13.3, 13.9, 15.1, 17.0, 18.2] },
+    "41": { height: [91.4, 95.2, 99.2, 103.0, 107.0], weight: [12.5, 13.7, 15.2, 17.2, 19.3], head: [47.1, 48.4, 49.8, 51.2, 52.4], bmi: [13.2, 13.8, 15.0, 17.0, 18.2] },
+    "42": { height: [91.9, 95.8, 99.9, 103.7, 107.7], weight: [12.6, 13.9, 15.3, 17.4, 19.5], head: [47.2, 48.5, 49.9, 51.3, 52.5], bmi: [13.2, 13.8, 15.0, 16.9, 18.1] },
+    "43": { height: [92.4, 96.3, 100.4, 104.3, 108.3], weight: [12.7, 14.0, 15.5, 17.6, 19.8], head: [47.2, 48.5, 49.9, 51.3, 52.5], bmi: [13.2, 13.8, 15.0, 16.9, 18.1] },
+    "44": { height: [93.0, 96.9, 101.0, 104.9, 109.0], weight: [12.8, 14.2, 15.7, 17.8, 20.0], head: [47.3, 48.6, 50.0, 51.4, 52.6], bmi: [13.2, 13.7, 14.9, 16.9, 18.1] },
+    "45": { height: [93.5, 97.4, 101.6, 105.6, 109.7], weight: [12.9, 14.3, 15.8, 18.0, 20.3], head: [47.3, 48.6, 50.0, 51.4, 52.6], bmi: [13.2, 13.7, 14.9, 16.9, 18.1] },
+    "46": { height: [94.0, 98.0, 102.2, 106.2, 110.4], weight: [13.1, 14.5, 16.0, 18.2, 20.6], head: [47.4, 48.7, 50.1, 51.5, 52.7], bmi: [13.2, 13.7, 14.9, 16.9, 18.2] },
+    "47": { height: [94.5, 98.5, 102.7, 106.8, 111.0], weight: [13.2, 14.6, 16.2, 18.4, 20.9], head: [47.4, 48.7, 50.1, 51.5, 52.8], bmi: [13.2, 13.7, 14.9, 16.9, 18.2] },
+    "48": { height: [94.9, 99.1, 103.3, 107.5, 111.7], weight: [13.3, 14.8, 16.3, 18.7, 21.2], head: [47.5, 48.8, 50.2, 51.7, 52.9], bmi: [13.2, 13.7, 14.9, 16.9, 18.3] },
+    "49": { height: [95.4, 99.6, 103.9, 108.1, 112.4], weight: [13.5, 14.9, 16.5, 18.9, 21.5], head: [47.5, 48.8, 50.2, 51.7, 52.9], bmi: [13.1, 13.7, 14.9, 16.9, 18.3] },
+    "50": { height: [95.9, 100.1, 104.4, 108.7, 113.0], weight: [13.6, 15.1, 16.6, 19.1, 21.8], head: [47.6, 48.9, 50.3, 51.8, 53.0], bmi: [13.1, 13.7, 14.9, 16.9, 18.3] },
+    "51": { height: [96.4, 100.7, 105.0, 109.3, 113.6], weight: [13.7, 15.2, 16.8, 19.3, 22.1], head: [47.6, 48.9, 50.3, 51.8, 53.0], bmi: [13.1, 13.6, 14.8, 16.9, 18.4] },
+    "52": { height: [96.9, 101.2, 105.6, 109.9, 114.3], weight: [13.8, 15.4, 17.0, 19.5, 22.4], head: [47.7, 49.0, 50.4, 51.9, 53.1], bmi: [13.1, 13.6, 14.8, 16.9, 18.4] },
+    "53": { height: [97.4, 101.7, 106.1, 110.5, 114.9], weight: [14.0, 15.5, 17.1, 19.7, 22.7], head: [47.7, 49.0, 50.4, 51.9, 53.1], bmi: [13.0, 13.6, 14.8, 16.9, 18.5] },
+    "54": { height: [97.9, 102.2, 106.7, 111.1, 115.6], weight: [14.1, 15.7, 17.3, 19.9, 23.0], head: [47.8, 49.1, 50.5, 52.0, 53.2], bmi: [13.0, 13.6, 14.8, 16.9, 18.5] },
+    "55": { height: [98.4, 102.7, 107.2, 111.7, 116.2], weight: [14.2, 15.8, 17.5, 20.2, 23.3], head: [47.8, 49.1, 50.5, 52.0, 53.2], bmi: [13.0, 13.6, 14.8, 16.9, 18.6] },
+    "56": { height: [98.8, 103.2, 107.8, 112.3, 116.8], weight: [14.3, 16.0, 17.6, 20.4, 23.6], head: [47.9, 49.2, 50.6, 52.1, 53.3], bmi: [13.0, 13.6, 14.8, 16.9, 18.6] },
+    "57": { height: [99.3, 103.7, 108.3, 112.9, 117.4], weight: [14.4, 16.1, 17.8, 20.6, 23.9], head: [47.9, 49.2, 50.6, 52.1, 53.3], bmi: [13.0, 13.6, 14.8, 17.0, 18.7] },
+    "58": { height: [99.8, 104.3, 108.9, 113.4, 118.0], weight: [14.5, 16.2, 18.0, 20.9, 24.2], head: [48.0, 49.3, 50.7, 52.2, 53.4], bmi: [13.0, 13.6, 14.8, 17.0, 18.7] },
+    "59": { height: [100.2, 104.8, 109.4, 114.0, 118.6], weight: [14.6, 16.4, 18.1, 21.1, 24.6], head: [48.0, 49.3, 50.7, 52.2, 53.4], bmi: [13.0, 13.6, 14.8, 17.0, 18.8] },
+    "60": { height: [100.7, 105.3, 110.0, 114.6, 119.2], weight: [14.7, 16.5, 18.3, 21.4, 24.9], head: [48.0, 49.3, 50.8, 52.3, 53.5], bmi: [13.0, 13.6, 14.8, 17.0, 18.8] },
+    
+    // 5至7歲國健署就近靠攏階段
+    "66": { height: [106.1, 111.0, 116.0, 121.0, 125.9], weight: [16.3, 18.4, 20.7, 24.2, 28.4], head: [48.4, 49.7, 51.2, 52.7, 53.9], bmi: [13.1, 13.7, 15.1, 17.4, 19.7] },
+    "72": { height: [108.7, 113.8, 118.9, 124.1, 129.2], weight: [17.1, 19.4, 21.9, 25.7, 30.3], head: [48.6, 49.9, 51.4, 52.9, 54.1], bmi: [13.1, 13.8, 15.3, 17.7, 20.3] },
+    "78": { height: [111.2, 116.4, 121.7, 127.1, 132.4], weight: [18.0, 20.4, 23.1, 27.3, 32.3], head: [48.7, 50.0, 51.5, 53.1, 54.3], bmi: [13.2, 13.9, 15.5, 18.1, 21.0] },
+    "84": { height: [115.1, 120.1, 125.8, 131.6, 136.7], weight: [17.0, 19.6, 23.0, 27.9, 33.0], head: [49.3, 50.6, 52.3, 54.2, 55.5], bmi: [12.3, 13.0, 14.1, 15.8, 17.7] }
+   },
+
+// ==========================================
+// 女孩 (Female) 0 ~ 7 歲官方原始數據
+// ==========================================
+female : {
+    "0":  { height: [45.4, 47.3, 49.1, 51.0, 52.9], weight: [2.4, 2.8, 3.2, 3.7, 4.2], head: [31.5, 32.7, 33.9, 35.1, 36.2] },
+    "1":  { height: [49.8, 51.7, 53.7, 55.6, 57.6], weight: [3.2, 3.6, 4.2, 4.8, 5.5], head: [34.1, 35.2, 36.5, 37.7, 38.9] },
+    "2":  { height: [53.0, 55.0, 57.1, 59.1, 61.1], weight: [3.9, 4.5, 5.1, 5.8, 6.6], head: [35.8, 37.0, 38.3, 39.5, 40.7] },
+    "3":  { height: [55.6, 57.7, 59.8, 61.9, 64.0], weight: [4.5, 5.2, 5.8, 6.6, 7.5], head: [37.2, 38.3, 39.5, 40.8, 42.0] },
+    "4":  { height: [57.8, 59.9, 62.1, 64.3, 66.4], weight: [5.0, 5.7, 6.4, 7.3, 8.2], head: [38.2, 39.4, 40.6, 41.9, 43.1] },
+    "5":  { height: [59.6, 61.8, 64.0, 66.2, 68.5], weight: [5.4, 6.1, 6.9, 7.8, 8.8], head: [39.1, 40.2, 41.5, 42.8, 44.0] },
+    "6":  { height: [61.2, 63.5, 65.7, 68.0, 70.3], weight: [5.7, 6.5, 7.3, 8.3, 9.3], head: [39.9, 41.0, 42.3, 43.6, 44.8] },
+    "7":  { height: [62.7, 65.0, 67.3, 69.6, 71.9], weight: [6.0, 6.8, 7.6, 8.7, 9.8], head: [40.5, 41.6, 42.9, 44.3, 45.5] },
+    "8":  { height: [64.0, 66.4, 68.7, 71.1, 73.5], weight: [6.3, 7.0, 7.9, 9.0, 10.2], head: [41.1, 42.2, 43.5, 44.8, 46.1] },
+    "9":  { height: [65.3, 67.7, 70.1, 72.6, 75.0], weight: [6.5, 7.3, 8.2, 9.3, 10.5], head: [41.6, 42.7, 44.0, 45.3, 46.6] },
+    "10": { height: [66.5, 69.0, 71.5, 73.9, 76.4], weight: [6.7, 7.5, 8.5, 9.6, 10.9], head: [42.0, 43.1, 44.5, 45.8, 47.1] },
+    "11": { height: [67.7, 70.3, 72.8, 75.3, 77.8], weight: [6.9, 7.7, 8.7, 9.9, 11.2], head: [42.4, 43.5, 44.9, 46.2, 47.5] },
+    "12": { height: [68.9, 71.4, 74.0, 76.6, 79.2], weight: [7.0, 7.9, 8.9, 10.1, 11.5], head: [42.7, 43.9, 45.3, 46.6, 47.9] },
+    "13": { height: [70.1, 72.4, 75.2, 77.8, 80.4], weight: [7.2, 8.1, 9.2, 10.4, 11.8], head: [42.9, 44.1, 45.5, 46.8, 48.1] },
+    "14": { height: [71.0, 73.4, 76.3, 79.0, 81.7], weight: [7.4, 8.3, 9.4, 10.6, 12.1], head: [43.1, 44.3, 45.7, 47.0, 48.3] },
+    "15": { height: [72.0, 74.5, 77.5, 80.2, 83.0], weight: [7.6, 8.5, 9.6, 10.9, 12.4], head: [43.3, 44.5, 45.9, 47.2, 48.5] },
+    "16": { height: [73.0, 75.6, 78.6, 81.4, 84.2], weight: [7.7, 8.7, 9.8, 11.1, 12.6], head: [43.5, 44.7, 46.1, 47.4, 48.7] },
+    "17": { height: [74.0, 76.6, 79.7, 82.5, 85.4], weight: [7.9, 8.9, 10.0, 11.4, 12.9], head: [43.6, 44.8, 46.2, 47.5, 48.8] },
+    "18": { height: [74.9, 77.6, 80.7, 83.6, 86.5], weight: [8.1, 9.1, 10.2, 11.6, 13.2], head: [43.8, 45.0, 46.4, 47.7, 49.0] },
+    "19": { height: [75.8, 78.6, 81.7, 84.7, 87.6], weight: [8.3, 9.3, 10.4, 11.8, 13.5], head: [43.9, 45.1, 46.5, 47.9, 49.1] },
+    "20": { height: [76.7, 79.5, 82.7, 85.8, 88.7], weight: [8.5, 9.5, 10.6, 12.1, 13.8], head: [44.1, 45.3, 46.7, 48.0, 49.3] },
+    "21": { height: [77.5, 80.5, 83.7, 86.8, 89.8], weight: [8.7, 9.7, 10.9, 12.4, 14.1], head: [44.2, 45.4, 46.8, 48.2, 49.4] },
+    "22": { height: [78.4, 81.4, 84.6, 87.8, 90.8], weight: [8.9, 9.9, 11.1, 12.6, 14.4], head: [44.3, 45.5, 46.9, 48.3, 49.5] },
+    "23": { height: [79.2, 82.3, 85.5, 88.8, 91.9], weight: [9.0, 10.1, 11.3, 12.9, 14.7], head: [44.4, 45.6, 47.0, 48.4, 49.6] },
+    "24": { height: [80.0, 83.2, 86.4, 89.6, 92.9], weight: [9.4, 10.4, 11.5, 13.0, 14.8], head: [44.6, 45.7, 47.2, 48.5, 49.6] },
+    "25": { height: [80.8, 84.1, 87.3, 90.6, 93.9], weight: [9.5, 10.5, 11.7, 13.2, 15.0], head: [44.7, 45.8, 47.3, 48.6, 49.7] },
+    "26": { height: [81.6, 84.9, 88.2, 91.5, 94.8], weight: [9.7, 10.7, 11.9, 13.4, 15.3], head: [44.8, 45.9, 47.4, 48.8, 49.9] },
+    "27": { height: [82.4, 85.7, 89.1, 92.4, 95.8], weight: [9.9, 10.9, 12.1, 13.7, 15.6], head: [44.9, 46.0, 47.5, 48.9, 50.0] },
+    "28": { height: [83.2, 86.5, 90.0, 93.3, 96.7], weight: [10.0, 11.1, 12.3, 13.9, 15.9], head: [45.0, 46.1, 47.6, 49.0, 50.1] },
+    "29": { height: [83.9, 87.3, 90.8, 94.2, 97.7], weight: [10.2, 11.2, 12.5, 14.2, 16.1], head: [45.1, 46.2, 47.7, 49.1, 50.2] },
+    "30": { height: [84.7, 88.1, 91.7, 95.1, 98.6], weight: [10.3, 11.4, 12.7, 14.4, 16.4], head: [45.2, 46.4, 47.8, 49.1, 50.3] },
+    "31": { height: [85.4, 88.9, 92.5, 96.0, 99.5], weight: [10.5, 11.6, 12.9, 14.6, 16.6], head: [45.3, 46.5, 47.9, 49.2, 50.4] },
+    "32": { height: [86.1, 89.6, 93.3, 96.9, 100.4], weight: [10.6, 11.7, 13.1, 14.9, 16.9], head: [45.4, 46.6, 48.0, 49.3, 50.5] },
+    "33": { height: [86.8, 90.3, 94.1, 97.7, 101.3], weight: [10.8, 11.9, 13.3, 15.1, 17.1], head: [45.5, 46.7, 48.1, 49.4, 50.6] },
+    "34": { height: [87.5, 91.0, 94.9, 98.6, 102.1], weight: [10.9, 12.0, 13.5, 15.3, 17.4], head: [45.6, 46.7, 48.2, 49.5, 50.7] },
+    "35": { height: [88.2, 91.7, 95.6, 99.4, 103.0], weight: [11.1, 12.2, 13.7, 15.5, 17.6], head: [45.6, 46.8, 48.2, 49.6, 50.7] },
+    "36": { height: [87.4, 91.1, 95.1, 98.9, 102.7], weight: [11.2, 12.4, 13.9, 15.8, 17.9], head: [45.7, 46.9, 48.3, 49.7, 50.8], bmi: [13.2, 13.8, 14.9, 17.0, 18.3] },
+    "37": { height: [88.0, 91.7, 95.7, 99.6, 103.5], weight: [11.3, 12.5, 14.1, 16.0, 18.2], head: [45.8, 47.0, 48.4, 49.8, 50.9], bmi: [13.1, 13.7, 14.8, 16.9, 18.2] },
+    "38": { height: [88.5, 92.3, 96.4, 100.3, 104.2], weight: [11.5, 12.7, 14.2, 16.2, 18.4], head: [45.8, 47.0, 48.4, 49.8, 50.9], bmi: [13.1, 13.7, 14.8, 16.9, 18.2] },
+    "39": { height: [89.1, 92.9, 97.0, 101.0, 105.0], weight: [11.6, 12.8, 14.4, 16.4, 18.7], head: [45.9, 47.1, 48.5, 49.9, 51.0], bmi: [13.0, 13.6, 14.7, 16.8, 18.2] },
+    "40": { height: [89.6, 93.5, 97.7, 101.7, 105.7], weight: [11.7, 13.0, 14.6, 16.6, 18.9], head: [46.0, 47.1, 48.5, 50.0, 51.1], bmi: [13.0, 13.6, 14.7, 16.8, 18.2] },
+    "41": { height: [90.2, 94.1, 98.3, 102.3, 106.4], weight: [11.9, 13.1, 14.8, 16.8, 19.2], head: [46.0, 47.2, 48.6, 50.0, 51.1], bmi: [13.0, 13.5, 14.6, 16.8, 18.1] },
+    "42": { height: [90.7, 94.6, 99.0, 103.0, 107.1], weight: [12.0, 13.3, 14.9, 17.0, 19.4], head: [46.1, 47.2, 48.6, 50.1, 51.2], bmi: [12.9, 13.5, 14.6, 16.7, 18.1] },
+    "43": { height: [91.2, 95.2, 99.6, 103.7, 107.8], weight: [12.1, 13.4, 15.1, 17.2, 19.7], head: [46.1, 47.3, 48.7, 50.1, 51.2], bmi: [12.9, 13.5, 14.6, 16.7, 18.1] },
+    "44": { height: [91.8, 95.8, 100.2, 104.3, 108.5], weight: [12.2, 13.6, 15.3, 17.4, 19.9], head: [46.2, 47.3, 48.7, 50.2, 51.3], bmi: [12.9, 13.4, 14.5, 16.7, 18.1] },
+    "45": { height: [92.3, 96.3, 100.8, 105.0, 109.2], weight: [12.4, 13.7, 15.4, 17.6, 20.2], head: [46.2, 47.3, 48.8, 50.2, 51.3], bmi: [12.9, 13.4, 14.5, 16.7, 18.1] },
+    "46": { height: [92.8, 96.9, 101.4, 105.6, 109.9], weight: [12.5, 13.9, 15.6, 17.8, 20.5], head: [46.3, 47.4, 48.8, 50.3, 51.4], bmi: [12.9, 13.4, 14.5, 16.7, 18.2] },
+    "47": { height: [93.3, 97.4, 102.0, 106.3, 110.6], weight: [12.6, 14.0, 15.8, 18.0, 20.7], head: [46.3, 47.4, 48.9, 50.3, 51.4], bmi: [12.9, 13.4, 14.5, 16.7, 18.2] },
+    "48": { height: [93.5, 97.8, 102.1, 106.4, 110.7], weight: [12.7, 14.2, 16.0, 18.5, 21.2], head: [46.4, 47.6, 49.0, 50.5, 51.7], bmi: [12.9, 13.4, 14.5, 16.8, 18.3] },
+    "49": { height: [94.0, 98.3, 102.7, 107.0, 111.4], weight: [12.8, 14.3, 16.2, 18.7, 21.5], head: [46.4, 47.6, 49.0, 50.5, 51.7], bmi: [12.8, 13.4, 14.5, 16.8, 18.3] },
+    "50": { height: [94.5, 98.8, 103.3, 107.6, 112.0], weight: [13.0, 14.4, 16.3, 18.9, 21.8], head: [46.5, 47.7, 49.1, 50.6, 51.8], bmi: [12.8, 13.4, 14.5, 16.8, 18.4] },
+    "51": { height: [95.0, 99.4, 103.9, 108.3, 112.7], weight: [13.1, 14.6, 16.5, 19.1, 22.1], head: [46.5, 47.7, 49.1, 50.6, 51.8], bmi: [12.8, 13.3, 14.5, 16.8, 18.4] },
+    "52": { height: [95.5, 99.9, 104.5, 108.9, 113.4], weight: [13.2, 14.7, 16.7, 19.3, 22.4], head: [46.6, 47.7, 49.2, 50.6, 51.8], bmi: [12.8, 13.3, 14.4, 16.8, 18.5] },
+    "53": { height: [96.0, 100.4, 105.1, 109.5, 114.0], weight: [13.3, 14.9, 16.8, 19.6, 22.7], head: [46.6, 47.8, 49.2, 50.7, 51.9], bmi: [12.7, 13.3, 14.4, 16.8, 18.5] },
+    "54": { height: [96.5, 100.9, 105.7, 110.1, 114.7], weight: [13.4, 15.0, 17.0, 19.8, 23.0], head: [46.7, 47.8, 49.3, 50.7, 51.9], bmi: [12.7, 13.3, 14.4, 16.8, 18.6] },
+    "55": { height: [97.0, 101.4, 106.2, 110.8, 115.3], weight: [13.5, 15.1, 17.2, 20.0, 23.3], head: [46.7, 47.8, 49.3, 50.8, 52.0], bmi: [12.7, 13.3, 14.4, 16.9, 18.6] },
+    "56": { height: [97.5, 102.0, 106.8, 111.4, 116.0], weight: [13.6, 15.3, 17.3, 20.2, 23.6], head: [46.8, 47.9, 49.4, 50.8, 52.0], bmi: [12.7, 13.3, 14.4, 16.9, 18.7] },
+    "57": { height: [98.0, 102.5, 107.4, 112.0, 116.6], weight: [13.7, 15.4, 17.5, 20.4, 24.0], head: [46.8, 47.9, 49.4, 50.9, 52.1], bmi: [12.7, 13.3, 14.4, 16.9, 18.7] },
+    "58": { height: [98.5, 103.0, 107.9, 112.6, 117.3], weight: [13.9, 15.6, 17.7, 20.7, 24.3], head: [46.9, 48.0, 49.5, 51.0, 52.2], bmi: [12.7, 13.3, 14.4, 16.9, 18.8] },
+    "59": { height: [99.0, 103.5, 108.5, 113.2, 118.0], weight: [14.0, 15.7, 17.9, 21.0, 24.7], head: [46.9, 48.0, 49.5, 51.0, 52.2], bmi: [12.7, 13.3, 14.4, 16.9, 18.9] },
+    "60": { height: [99.4, 104.1, 109.4, 114.0, 118.9], weight: [14.1, 15.9, 18.2, 21.3, 25.1], head: [46.9, 48.1, 49.6, 51.1, 52.3], bmi: [12.7, 13.3, 14.4, 16.9, 18.9] },
+    
+    // 5至7歲國健署就近靠攏階段
+    "66": { height: [104.8, 109.9, 115.1, 120.2, 125.4], weight: [15.5, 17.7, 20.2, 24.1, 28.7], head: [47.2, 48.5, 50.0, 51.5, 52.7], bmi: [12.7, 13.4, 14.7, 17.4, 19.8] },
+    "72": { height: [107.4, 112.7, 118.0, 123.2, 128.6], weight: [16.2, 18.6, 21.3, 25.6, 30.6], head: [47.4, 48.7, 50.2, 51.7, 52.9], bmi: [12.7, 13.5, 14.9, 17.7, 20.4] },
+    "78": { height: [110.0, 115.4, 120.8, 126.2, 131.7], weight: [17.0, 19.5, 22.4, 27.1, 32.6], head: [47.5, 48.8, 50.3, 51.9, 53.1], bmi: [12.8, 13.6, 15.1, 18.1, 21.1] },
+    "84": { height: [115.1, 120.1, 125.8, 131.6, 136.7], weight: [17.0, 19.6, 23.0, 27.9, 33.0], head: [49.3, 50.6, 52.3, 54.2, 55.5], bmi: [12.3, 13.0, 14.1, 15.8, 17.7] }
+   }
+};
+
+// 1. 自動依輸入資料當天計算兒童的精準年齡
+function calculateAge(birthdayStr) {
+    // 關鍵修正：將 "2026-08-28" 強制轉換為 "2026/08/28"，徹底解除 iPad 日期地雷！
+    const safeBirthdayStr = birthdayStr.replace(/-/g, '/');
+    const birthDate = new Date(safeBirthdayStr);
+    const today = new Date();
+    
+    // 檢查日期是否有效，防止 iPad 再次因異常數據卡死
+    if (isNaN(birthDate.getTime())) return null;
+    if (birthDate > today) return null;
+
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    let days = today.getDate() - birthDate.getDate();
+
+    if (days < 0) {
+        months -= 1;
+        const prevMonthLastDay = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+        days += prevMonthLastDay;
+    }
+    if (months < 0) {
+        years -= 1;
+        months += 12;
+    }
+    
+    const totalMonths = years * 12 + months;
+    return { years, months, days, totalMonths };
+}
+
+
+// 2. 同步衛福部健康99之「就近靠攏」年齡階段算法 (月齡 Key 值校正回歸最終版)
+function getAgeKey(age) {
+    const totalMonths = age.totalMonths;
+    
+    // 0至5歲（0 ~ 60 個月）：維持逐月點對點查表
+    if (totalMonths <= 60) {
+        return totalMonths.toString();
+    } 
+    // 5至7歲（61 ~ 84 個月）：嚴格執行健康99網站「就近靠攏法」
+    else if (totalMonths <= 84) {
+        const currentYears = Math.floor(totalMonths / 12);
+        const extraMonths = totalMonths % 12;
+
+        if (currentYears === 5) {
+            if (extraMonths >= 1 && extraMonths <= 3) return "60";
+            if (extraMonths === 4 || extraMonths === 5) return "66";
+            if (extraMonths === 6) return "66";
+            if (extraMonths >= 7 && extraMonths <= 9) return "66";
+            if (extraMonths >= 10 && extraMonths <= 11) return "72";
+        }
+        else if (currentYears === 6) {
+            if (extraMonths <= 3) return "72";
+            if (extraMonths === 4 || extraMonths === 5) return "78";
+            if (extraMonths === 6) return "78";
+            if (extraMonths >= 7 && extraMonths <= 9) return "78";
+            if (extraMonths >= 10 && extraMonths <= 11) return "84";
+        }
+    }
+    return "out_of_range";
+}
+
+// 監聽生日欄位變更，動態更新年齡、亮出年齡紅框與欄位隱顯狀態
+function updateAgeDisplay() {
+    const birthdayInput = document.getElementById('birthday').value;
+    if (!birthdayInput) return;
+
+    const age = calculateAge(birthdayInput);
+    if (!age) {
+        alert("生日不能晚於今天！");
+        document.getElementById('birthday').value = "";
+        return;
+    }
+
+    // 顯示實際年齡文字
+    const ageRes = document.getElementById('ageResult');
+    ageRes.innerText = `實際年齡：${age.years} 歲 ${age.months} 個月 ${age.days} 天`;
+    ageRes.style.display = 'flex';
+    ageRes.style.border = 'none';
+    const headCircumInput = document.getElementById('headCircum');
+    const headCircumLabel = document.getElementById('headCircumLabel');
+    const headCircumGroup = document.getElementById('headCircumGroup');
+    const bmiFormGroup = document.getElementById('bmiFormGroup');
+
+    // 滿 3 歲 (36 個月) 以上完全隱藏頭圍
+    if (age.totalMonths >= 36) {
+        headCircumInput.required = false;
+        headCircumLabel.classList.remove('required');
+        headCircumGroup.style.display = 'none'; // 完全隱藏頭圍整行
+    } else {
+        headCircumInput.required = true;
+        headCircumLabel.classList.add('required');
+        headCircumGroup.style.display = 'flex'; // 重新顯示頭圍整行
+        bmiFormGroup.style.display = 'none';   // 隱藏 BMI 輸入列
+        
+        // 隱藏 BMI 的結果紅框
+        const bmiRes = document.getElementById('bmiResult');
+        bmiRes.innerText = "";
+        bmiRes.style.display = 'none';
+        document.getElementById('bmiValue').value = "";
+    }
+}
+
+// 3. 核心查表演算法：判斷六階百分位 (修正索引值)
+function getPercentile(value, dataArray) {
+    if (!value || !dataArray) return "-";
+    const num = parseFloat(value);
+    
+    const p3  = dataArray[0]; // 3rd
+    const p15 = dataArray[1]; // 15th
+    const p50 = dataArray[2]; // 50th
+    const p85 = dataArray[3]; // 85th
+    const p97 = dataArray[4]; // 97th
+
+    if (num < p3) return "小於 3";
+    if (num >= p3 && num < p15) return "3 ～ 15";
+    if (num >= p15 && num < p50) return "15 ～ 50";
+    if (num >= p50 && num < p85) return "50 ～ 85";
+    if (num >= p85 && num < p97) return "85 ～ 97";
+    if (num >= p97) return "大於 97";
+    return "-";
+}
+
+// 4. 3歲以上兒童 BMI 體位判斷 (修正索引值，對應 [5th, 15th, 50th, 85th, 97th])
+function getBmiStatus(bmi, bmiArray) {
+    if (!bmi || !bmiArray) return "-";
+    const num = parseFloat(bmi);
+    
+    const p5  = bmiArray[0]; // 5th
+    const p85 = bmiArray[3]; // 85th
+    const p97 = bmiArray[4]; // 97th
+
+    if (num < p5) return "過輕";
+    if (num >= p5 && num < p85) return "正常";
+    if (num >= p85 && num < p97) return "過重";
+    if (num >= p97) return "肥胖";
+    return "-";
+}
+
+// 5. 開始計算主程式
+function calculateGrowth() {
+    const genderElement = document.querySelector('input[name="gender"]:checked');
+    const birthdayInput = document.getElementById('birthday').value;
+    const heightInput = document.getElementById('height').value;
+    const weightInput = document.getElementById('weight').value;
+    const headCircumInput = document.getElementById('headCircum').value;
+
+    if (!genderElement || !birthdayInput || !heightInput || !weightInput) {
+        alert("請填寫所有必填欄位！");
+        return;
+    }
+
+    const gender = genderElement.value;
+    const age = calculateAge(birthdayInput);
+    const ageKey = getAgeKey(age);
+
+    if (ageKey === "out_of_range") {
+        alert("本系統僅支援 0 至 7 歲兒童的數據評估。");
+        return;
+    }
+
+    const currentTable = growthData[gender][ageKey];
+    if (!currentTable) {
+        alert("找不到對應年齡的對照資料，請確認資料庫是否載入成功。");
+        return;
+    }
+
+    // 計算、填入文字並顯示【身高】紅框
+    const hRes = document.getElementById('heightResult');
+    hRes.innerText = "身高百分位：" + getPercentile(heightInput, currentTable.height) + " %";
+    hRes.style.display = 'flex';
+
+    // 計算、填入文字並顯示【體重】紅框
+    const wRes = document.getElementById('weightResult');
+    wRes.innerText = "體重百分位：" + getPercentile(weightInput, currentTable.weight) + " %";
+    wRes.style.display = 'flex';
+
+    // 計算、填入文字並顯示【頭圍】紅框（3歲以上則維持隱藏）
+    const cRes = document.getElementById('headCircumResult');
+    if (age.totalMonths >= 36 && !headCircumInput) {
+        cRes.innerText = "";
+        cRes.style.display = 'none';
+    } else {
+        cRes.innerText = "頭圍百分位：" + getPercentile(headCircumInput, currentTable.head) + " %";
+        cRes.style.display = 'flex';
+    }
+
+    // 處理 3 歲以上的 【BMI 與體位判斷】
+    if (age.totalMonths >= 36) {
+        const hMeter = parseFloat(heightInput) / 100;
+        const bmi = (parseFloat(weightInput) / (hMeter * hMeter)).toFixed(1);
+        bmiFormGroup.style.display = 'flex';    // 顯示 BMI 欄位
+        document.getElementById('bmiValue').value = bmi;
+        
+        const bRes = document.getElementById('bmiResult');
+        bRes.innerText = "體位判斷：" + getBmiStatus(bmi, currentTable.bmi);
+        bRes.style.display = 'flex';
+    }
+}
+
+// 6. 條件9：重新計算按鈕，清除所有資料並100%還原初始狀態
+function resetForm() {
+    // 清空所有表單輸入
+    document.getElementById('growthForm').reset();
+    
+    // 將所有結果文字完全清空
+    document.getElementById('ageResult').innerText = "";
+    document.getElementById('heightResult').innerText = "";
+    document.getElementById('weightResult').innerText = "";
+    document.getElementById('headCircumResult').innerText = "";
+    document.getElementById('bmiValue').value = "";
+    document.getElementById('bmiResult').innerText = "";
+    
+    // 將所有結果紅框再度隱藏
+    document.getElementById('ageResult').style.display = 'none';
+    document.getElementById('heightResult').style.display = 'none';
+    document.getElementById('weightResult').style.display = 'none';
+    document.getElementById('headCircumResult').style.display = 'none';
+    document.getElementById('bmiResult').style.display = 'none';
+    
+    // 【純淨精簡控制】一鍵強制讓頭圍外框重新出現，並恢復必填紅星
+    document.getElementById('headCircumGroup').style.display = 'flex';
+    document.getElementById('bmiFormGroup').style.display = 'none';
+    
+    document.getElementById('headCircum').required = true;
+    document.getElementById('headCircumLabel').classList.add('required');
+}
+
+// 網頁剛載入時，預設頭圍為必填
+document.getElementById('headCircum').required = true;
+    </script>
+
+</body>
+
+</html>
