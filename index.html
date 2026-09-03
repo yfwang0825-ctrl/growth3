@@ -486,8 +486,9 @@ function getAgeKey(age) {
             if (extraMonths === 6) return "78";
             if (extraMonths >= 7 && extraMonths <= 9) return "78";
             if (extraMonths >= 10 && extraMonths <= 11) return "84";
+            }
+            else return "84";
         }
-    }
     return "out_of_range";
 }
 
