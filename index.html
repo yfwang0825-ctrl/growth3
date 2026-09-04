@@ -531,6 +531,12 @@ function updateAgeDisplay() {
         bmiRes.style.display = 'none';
         document.getElementById('bmiValue').value = "";
     }
+    // 檢查年齡是否超過7歲
+    const ageKey = getAgeKey(age);
+    if (ageKey === "out_of_range") {
+        alert("本系統僅支援 0 至 7 歲兒童的數據評估。");
+        return;
+    }
 }
 
 // 3. 核心查表演算法：判斷六階百分位 (修正索引值)
